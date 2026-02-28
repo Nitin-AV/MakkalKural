@@ -3,7 +3,6 @@ import 'package:smart_civic_connect/screens/homescreen.dart';
 import 'package:smart_civic_connect/services/local_storage.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
-
 class NameScreen extends StatefulWidget {
   final String phone;
   final String location;
@@ -28,6 +27,14 @@ class _NameScreenState extends State<NameScreen> {
   bool loading = false;
 
   Future<void> saveUser() async {
+    if (firstController.text.trim().isEmpty ||
+        lastController.text.trim().isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text("Please fill all fields")),
+      );
+      return;
+    }
+
     setState(() => loading = true);
 
     final supabase = Supabase.instance.client;
@@ -59,104 +66,136 @@ class _NameScreenState extends State<NameScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      body: Container(
-        decoration: const BoxDecoration(
-          gradient: LinearGradient(
-            colors: [
-              Color(0xFF70C6FB),
-              Colors.white,
-            ],
-            begin: FractionalOffset(0.0, 0.0),
-            end: FractionalOffset(0.5, 0.5),
+      backgroundColor: const Color(0xFFF4F7FB),
+      body: Column(
+        children: [
+          Container(
+            width: double.infinity,
+            padding: const EdgeInsets.fromLTRB(20, 70, 20, 40),
+            decoration: const BoxDecoration(
+              gradient: LinearGradient(
+                colors: [Color(0xFF4A90E2), Color(0xFF70C6FB)],
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+              ),
+              borderRadius: BorderRadius.only(
+                bottomLeft: Radius.circular(35),
+                bottomRight: Radius.circular(35),
+              ),
+            ),
+            child: Column(
+              children: [
+                Image.asset("images/logo1.png", height: 95),
+                const SizedBox(height: 15),
+                const Text(
+                  "Complete Your Profile",
+                  style: TextStyle(
+                    color: Colors.white,
+                    fontSize: 20,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+              ],
+            ),
           ),
-        ),
-        child: SafeArea(
-          child: Center(
+
+          const SizedBox(height: 40),
+
+          Expanded(
             child: SingleChildScrollView(
-              child: Column(
-                children: [
+              child: Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 25),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
 
-                  /// 🔷 LOGO
-                  Image.asset(
-                    "images/logo.png",
-                    height: 110,
-                  ),
-
-                  const SizedBox(height: 20),
-
-                  const Text(
-                    "Complete Your Profile",
-                    style: TextStyle(
-                      fontSize: 22,
-                      fontWeight: FontWeight.w600,
+                    const Text(
+                      "First Name",
+                      style: TextStyle(
+                        fontSize: 15,
+                        fontWeight: FontWeight.w600,
+                      ),
                     ),
-                  ),
 
-                  const SizedBox(height: 30),
+                    const SizedBox(height: 12),
 
-                  Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 35),
-                    child: Column(
-                      children: [
+                    buildModernInput(firstController, "Enter first name"),
 
-                        buildInputField(
-                          controller: firstController,
-                          hint: "First Name",
-                        ),
+                    const SizedBox(height: 25),
 
-                        const SizedBox(height: 20),
+                    const Text(
+                      "Last Name",
+                      style: TextStyle(
+                        fontSize: 15,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
 
-                        buildInputField(
-                          controller: lastController,
-                          hint: "Last Name",
-                        ),
+                    const SizedBox(height: 12),
 
-                        const SizedBox(height: 40),
+                    buildModernInput(lastController, "Enter last name"),
 
-                        SizedBox(
-                          width: double.infinity,
-                          height: 45,
-                          child: ElevatedButton(
-                            style: ElevatedButton.styleFrom(
-                              backgroundColor: Colors.blue,
-                              shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(15),
-                              ),
-                            ),
-                            onPressed: loading ? null : saveUser,
-                            child: loading
-                                ? const CircularProgressIndicator(
-                                    color: Colors.white)
-                                : const Text(
-                                    "Continue",
-                                    style: TextStyle(fontSize: 16),
-                                  ),
+                    const SizedBox(height: 50),
+
+                    SizedBox(
+                      width: double.infinity,
+                      height: 50,
+                      child: ElevatedButton(
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: const Color(0xFF4A90E2),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(18),
                           ),
-                        )
-                      ],
+                          elevation: 6,
+                        ),
+                        onPressed: loading ? null : saveUser,
+                        child: loading
+                            ? const CircularProgressIndicator(
+                                color: Colors.white,
+                              )
+                            : const Text(
+                                "Continue",
+                                style: TextStyle(
+                                  fontSize: 16,
+                                  fontWeight: FontWeight.bold,
+                                  color: Colors.white,
+                                ),
+                              ),
+                      ),
                     ),
-                  ),
-                ],
+
+                    const SizedBox(height: 30),
+                  ],
+                ),
               ),
             ),
           ),
-        ),
+        ],
       ),
     );
   }
 
-  Widget buildInputField({
-    required TextEditingController controller,
-    required String hint,
-  }) {
-    return TextField(
-      controller: controller,
-      decoration: InputDecoration(
-        filled: true,
-        fillColor: Colors.white,
-        hintText: hint,
-        border: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(15),
+  Widget buildModernInput(
+      TextEditingController controller, String hint) {
+    return Container(
+      height: 60,
+      padding: const EdgeInsets.symmetric(horizontal: 16),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.grey.withOpacity(0.08),
+            blurRadius: 15,
+            offset: const Offset(0, 6),
+          )
+        ],
+      ),
+      child: TextField(
+        controller: controller,
+        decoration: InputDecoration(
+          border: InputBorder.none,
+          hintText: hint,
         ),
       ),
     );

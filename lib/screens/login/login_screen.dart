@@ -38,8 +38,6 @@ class _AuthScreenState extends State<AuthScreen>
   Duration get duration =>
       _timerController.duration! * _timerController.value;
 
-  bool get expired => duration.inSeconds == 0;
-
   @override
   void initState() {
     super.initState();
@@ -55,8 +53,6 @@ class _AuthScreenState extends State<AuthScreen>
     super.dispose();
   }
 
-  // ---------------- SEND OTP ----------------
-
   Future<void> sendOTP() async {
     if (!_formKey.currentState!.validate()) return;
 
@@ -64,14 +60,18 @@ class _AuthScreenState extends State<AuthScreen>
 
     await _auth.verifyPhoneNumber(
       phoneNumber: "+91${phoneController.text.trim()}",
+      timeout: const Duration(seconds: 60),
+
       verificationCompleted: (PhoneAuthCredential credential) async {
         await _auth.signInWithCredential(credential);
       },
+
       verificationFailed: (FirebaseAuthException e) {
         ScaffoldMessenger.of(context)
             .showSnackBar(SnackBar(content: Text(e.message ?? "")));
         setState(() => loading = false);
       },
+
       codeSent: (String verId, int? resendToken) {
         setState(() {
           verificationId = verId;
@@ -82,140 +82,177 @@ class _AuthScreenState extends State<AuthScreen>
         _timerController.reset();
         _timerController.reverse(from: 1);
       },
+
       codeAutoRetrievalTimeout: (String verId) {
         verificationId = verId;
       },
     );
   }
 
-  // ---------------- VERIFY OTP ----------------
+  Future<void> verifyOTP() async {
+    if (otpController.text.trim().length != 6) {
+      ScaffoldMessenger.of(context)
+          .showSnackBar(const SnackBar(content: Text("Enter valid OTP")));
+      return;
+    }
 
- Future<void> verifyOTP() async {
-  if (otpController.text.trim() != "123456") {
-    ScaffoldMessenger.of(context)
-        .showSnackBar(const SnackBar(content: Text("Invalid OTP")));
-    return;
+    try {
+      setState(() => loading = true);
+
+      final credential = PhoneAuthProvider.credential(
+        verificationId: verificationId,
+        smsCode: otpController.text.trim(),
+      );
+
+      await _auth.signInWithCredential(credential);
+
+      final phone = phoneController.text.trim();
+      final supabase = Supabase.instance.client;
+
+      final existingUser = await supabase
+          .from('users')
+          .select()
+          .eq('phone', phone)
+          .maybeSingle();
+
+      if (existingUser == null) {
+        Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (_) => NameScreen(
+              phone: phone,
+              location: widget.location,
+              locationCode: widget.locationCode,
+            ),
+          ),
+        );
+      } else {
+        await AppLocalStorage.saveLogin(phone);
+
+        Navigator.pushReplacement(
+          context,
+          MaterialPageRoute(builder: (_) => const HomeScreen()),
+        );
+      }
+
+    } on FirebaseAuthException catch (e) {
+      ScaffoldMessenger.of(context)
+          .showSnackBar(SnackBar(content: Text(e.message ?? "Invalid OTP")));
+    } finally {
+      setState(() => loading = false);
+    }
   }
-
-  final phone = phoneController.text.trim();
-  final supabase = Supabase.instance.client;
-
-  final existingUser = await supabase
-      .from('users')
-      .select()
-      .eq('phone', phone)
-      .maybeSingle();
-
-  if (existingUser == null) {
-    Navigator.push(
-      context,
-      MaterialPageRoute(
-        builder: (_) => NameScreen(
-          phone: phone,
-          location: widget.location,
-          locationCode: widget.locationCode,
-        ),
-      ),
-    );
-  } else {
-    await AppLocalStorage .saveLogin(phone);
-
-    Navigator.pushReplacement(
-      context,
-      MaterialPageRoute(builder: (_) => const HomeScreen()),
-    );
-  }
-}
-
-  // ---------------- UI ----------------
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      body: Container(
-        decoration: const BoxDecoration(
-          gradient: LinearGradient(
-            colors: [
-              Color(0xFF70C6FB),
-              Colors.white,
-            ],
-            begin: FractionalOffset(0.0, 0.0),
-            end: FractionalOffset(0.5, 0.5),
+      backgroundColor: const Color(0xFFF4F7FB),
+      body: Column(
+        children: [
+          Container(
+            width: double.infinity,
+            padding: const EdgeInsets.fromLTRB(20, 70, 20, 40),
+            decoration: const BoxDecoration(
+              gradient: LinearGradient(
+                colors: [Color(0xFF4A90E2), Color(0xFF70C6FB)],
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+              ),
+              borderRadius: BorderRadius.only(
+                bottomLeft: Radius.circular(35),
+                bottomRight: Radius.circular(35),
+              ),
+            ),
+            child: Column(
+              children: [
+                Image.asset("images/logo1.png", height: 95),
+                const SizedBox(height: 15),
+                const Text(
+                  "Mobile Verification",
+                  style: TextStyle(
+                    color: Colors.white,
+                    fontSize: 20,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+              ],
+            ),
           ),
-        ),
-        child: SafeArea(
-          child: Form(
-            key: _formKey,
-            child: Center(
-              child: SingleChildScrollView(
-                child: Column(
-                  children: [
 
-                    // 🔵 LOGO
-                    Image.asset(
-                      "images/logo.png",
-                      height: 140,
-                    ),
+          const SizedBox(height: 40),
 
-                    const SizedBox(height: 20),
-
-
-                    const SizedBox(height: 30),
-
-                    loading
-                        ? const CircularProgressIndicator()
-                        : codeSent
-                            ? buildOtpWidget()
-                            : buildPhoneWidget(),
-                  ],
+          Expanded(
+            child: SingleChildScrollView(
+              child: Form(
+                key: _formKey,
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 25),
+                  child: loading
+                      ? const Center(child: CircularProgressIndicator())
+                      : codeSent
+                          ? buildOtpWidget()
+                          : buildPhoneWidget(),
                 ),
               ),
             ),
           ),
-        ),
+        ],
       ),
     );
   }
 
-  // ---------------- PHONE UI ----------------
-
   Widget buildPhoneWidget() {
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 35),
-      child: Column(
-        children: [
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
 
-          const Text(
-            "Enter Registered Mobile Number",
-            style: TextStyle(fontSize: 16),
+        const Text(
+          "Enter Registered Mobile Number",
+          style: TextStyle(
+            fontSize: 16,
+            fontWeight: FontWeight.w600,
           ),
+        ),
 
-          const SizedBox(height: 15),
+        const SizedBox(height: 20),
 
-          Row(
-            mainAxisAlignment: MainAxisAlignment.center,
+        Container(
+          height: 60,
+          padding: const EdgeInsets.symmetric(horizontal: 16),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(16),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.grey.withOpacity(0.08),
+                blurRadius: 15,
+                offset: const Offset(0, 6),
+              )
+            ],
+          ),
+          child: Row(
             children: [
 
-              const SizedBox(
-                width: 50,
-                child: Text(
-                  "+91",
-                  textAlign: TextAlign.center,
-                  style: TextStyle(fontSize: 18),
+              const Text(
+                "+91",
+                style: TextStyle(
+                  fontSize: 16,
+                  fontWeight: FontWeight.w600,
                 ),
               ),
 
-              const SizedBox(width: 15),
+              const SizedBox(width: 12),
 
-              SizedBox(
-                width: 200,
+              Expanded(
                 child: TextFormField(
                   controller: phoneController,
                   keyboardType: TextInputType.number,
                   maxLength: 10,
-                  textAlign: TextAlign.center,
-                  decoration:
-                      const InputDecoration(counterText: ""),
+                  decoration: const InputDecoration(
+                    counterText: "",
+                    border: InputBorder.none,
+                    hintText: "Enter mobile number",
+                  ),
                   validator: (val) {
                     if (val == null || val.length != 10) {
                       return "Enter valid mobile number";
@@ -226,90 +263,99 @@ class _AuthScreenState extends State<AuthScreen>
               ),
             ],
           ),
+        ),
 
-          const SizedBox(height: 20),
+        const SizedBox(height: 40),
 
-          const Text(
-            "OTP will be sent to your registered mobile number",
-            textAlign: TextAlign.center,
-          ),
-
-          const SizedBox(height: 40),
-
-          buildButton("Send OTP", sendOTP),
-        ],
-      ),
+        buildModernButton("Send OTP", sendOTP),
+      ],
     );
   }
-
-  // ---------------- OTP UI ----------------
 
   Widget buildOtpWidget() {
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 35),
-      child: Column(
-        children: [
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
 
-          const Text(
-            "Enter OTP",
-            style: TextStyle(fontSize: 16),
+        const Text(
+          "Enter OTP",
+          style: TextStyle(
+            fontSize: 16,
+            fontWeight: FontWeight.w600,
           ),
+        ),
 
-          const SizedBox(height: 15),
+        const SizedBox(height: 20),
 
-          SizedBox(
-            width: 220,
-            child: TextField(
-              controller: otpController,
-              keyboardType: TextInputType.number,
-              maxLength: 6,
-              textAlign: TextAlign.center,
-              decoration:
-                  const InputDecoration(counterText: ""),
+        Container(
+          height: 60,
+          padding: const EdgeInsets.symmetric(horizontal: 16),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(16),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.grey.withOpacity(0.08),
+                blurRadius: 15,
+                offset: const Offset(0, 6),
+              )
+            ],
+          ),
+          child: TextField(
+            controller: otpController,
+            keyboardType: TextInputType.number,
+            maxLength: 6,
+            decoration: const InputDecoration(
+              counterText: "",
+              border: InputBorder.none,
+              hintText: "Enter 6-digit OTP",
             ),
           ),
+        ),
 
-          const SizedBox(height: 15),
+        const SizedBox(height: 15),
 
-          AnimatedBuilder(
-            animation: _timerController,
-            builder: (context, child) {
-              return duration.inSeconds != 0
-                  ? Text(
-                      "Resend in 00:${duration.inSeconds.toString().padLeft(2, '0')}",
-                      style: const TextStyle(color: Colors.red),
-                    )
-                  : TextButton(
-                      onPressed: sendOTP,
-                      child: const Text("Resend OTP"),
-                    );
-            },
-          ),
+        AnimatedBuilder(
+          animation: _timerController,
+          builder: (context, child) {
+            return duration.inSeconds != 0
+                ? Text(
+                    "Resend in 00:${duration.inSeconds.toString().padLeft(2, '0')}",
+                    style: const TextStyle(color: Colors.red),
+                  )
+                : TextButton(
+                    onPressed: sendOTP,
+                    child: const Text("Resend OTP"),
+                  );
+          },
+        ),
 
-          const SizedBox(height: 40),
+        const SizedBox(height: 40),
 
-          buildButton("Verify", verifyOTP),
-        ],
-      ),
+        buildModernButton("Verify", verifyOTP),
+      ],
     );
   }
-
-  // ---------------- BUTTON ----------------
-
-  Widget buildButton(String title, VoidCallback onTap) {
+  Widget buildModernButton(String title, VoidCallback onTap) {
     return SizedBox(
-      width: 250,
-      height: 45,
+      width: double.infinity,
+      height: 50,
       child: ElevatedButton(
         style: ElevatedButton.styleFrom(
-          backgroundColor: Colors.blue,
+          backgroundColor: const Color(0xFF4A90E2),
           shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(15)),
+            borderRadius: BorderRadius.circular(18),
+          ),
+          elevation: 6,
         ),
         onPressed: onTap,
         child: Text(
           title,
-          style: const TextStyle(fontSize: 16, color: Colors.white),
+          style: const TextStyle(
+            fontSize: 16,
+            fontWeight: FontWeight.bold,
+            color: Colors.white,
+          ),
         ),
       ),
     );

@@ -1,6 +1,7 @@
 import 'package:shared_preferences/shared_preferences.dart';
 
-class AppLocalStorage  {
+class AppLocalStorage {
+
   static Future<void> saveLogin(String phone) async {
     final prefs = await SharedPreferences.getInstance();
     await prefs.setBool("isLoggedIn", true);
@@ -10,6 +11,11 @@ class AppLocalStorage  {
   static Future<bool> isLoggedIn() async {
     final prefs = await SharedPreferences.getInstance();
     return prefs.getBool("isLoggedIn") ?? false;
+  }
+
+  static Future<String?> getUser() async {
+    final prefs = await SharedPreferences.getInstance();
+    return prefs.getString("phone");
   }
 
   static Future<void> logout() async {
