@@ -39,7 +39,8 @@ class _SuccessScreenState
             child: IconButton(
               icon: const Icon(Icons.arrow_back_ios_new, color: Colors.white),
               onPressed: () {
-                Navigator.of(context).popUntil((route) => route.isFirst);
+                Navigator.pushNamedAndRemoveUntil(
+                  context, '/home', (_) => false);
               },
             ),
           ),
