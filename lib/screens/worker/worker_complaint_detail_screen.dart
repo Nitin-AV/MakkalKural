@@ -104,7 +104,14 @@ class _WorkerComplaintDetailScreenState
         priorityColor = Colors.green;
     }
 
-    return Scaffold(
+    return Theme(
+      data: ThemeData(
+        useMaterial3: true,
+        colorScheme: ColorScheme.fromSeed(
+          seedColor: const Color(0xFF2E7D32),
+        ),
+      ),
+      child: Scaffold(
       backgroundColor: const Color(0xFFF4F7FB),
       body: Stack(
         children: [
@@ -358,6 +365,7 @@ class _WorkerComplaintDetailScreenState
             ),
         ],
       ),
+    ),
     );
   }
 

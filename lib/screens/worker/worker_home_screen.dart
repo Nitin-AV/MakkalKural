@@ -74,7 +74,14 @@ class _WorkerHomeScreenState extends State<WorkerHomeScreen> {
     final workerName = widget.workerData['name'] ?? "Worker";
     final wardName = widget.workerData['ward_name'] ?? "";
 
-    return Scaffold(
+    return Theme(
+      data: ThemeData(
+        useMaterial3: true,
+        colorScheme: ColorScheme.fromSeed(
+          seedColor: const Color(0xFF2E7D32),
+        ),
+      ),
+      child: Scaffold(
       backgroundColor: const Color(0xFFF4F7FB),
       body: RefreshIndicator(
         onRefresh: _fetchAssignedComplaints,
@@ -213,6 +220,7 @@ class _WorkerHomeScreenState extends State<WorkerHomeScreen> {
           ),
         ),
       ),
+    ),
     );
   }
 
