@@ -19,6 +19,7 @@ class _ComplaintsScreenState
 
   bool isLoading = true;
   List complaints = [];
+  int _tabIndex = 0;
 
   @override
   void initState() {
@@ -84,24 +85,57 @@ class _ComplaintsScreenState
 
   @override
   Widget build(BuildContext context) {
+    final openComplaints = complaints.where((c) => c['status'] != 'closed').toList();
+    final resolvedComplaints = complaints.where((c) => c['status'] == 'closed').toList();
+
     return Scaffold(
       backgroundColor: const Color(0xFFF4F7FB),
       body: Column(
         children: [
           Container(
             width: double.infinity,
-            padding: const EdgeInsets.fromLTRB(20, 60, 20, 25),
+            padding: const EdgeInsets.fromLTRB(20, 60, 20, 0),
             decoration: const BoxDecoration(
               color: Color(0xFF4A90E2),
             ),
-            child: const Center(
-              child: Text(
-                "My Complaints",
-                style: TextStyle(
-                  fontSize: 20,
-                  fontWeight: FontWeight.bold,
-                  color: Colors.white,
-                ),
+            child: SafeArea(
+              bottom: false,
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Center(
+                    child: Text(
+                      "My Complaints",
+                      style: TextStyle(
+                        fontSize: 20,
+                        fontWeight: FontWeight.bold,
+                        color: Colors.white,
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 18),
+                  Container(
+                    height: 48,
+                    margin: const EdgeInsets.symmetric(horizontal: 28),
+                    decoration: BoxDecoration(
+                      color: Colors.white.withOpacity(0.18),
+                      borderRadius: BorderRadius.circular(30),
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.black.withOpacity(0.07),
+                          blurRadius: 8,
+                          offset: const Offset(0, 2),
+                        ),
+                      ],
+                    ),
+                    child: Row(
+                      children: [
+                        _tabButton("Active", 0),
+                        _tabButton("Resolved", 1),
+                      ],
+                    ),
+                  ),
+                ],
               ),
             ),
           ),
@@ -110,16 +144,27 @@ class _ComplaintsScreenState
               onRefresh: fetchComplaints,
               child: isLoading
                   ? const Center(child: CircularProgressIndicator())
-                  : complaints.isEmpty
-                      ? _emptyState()
-                      : ListView.builder(
-                          physics: const AlwaysScrollableScrollPhysics(),
-                          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 20),
-                          itemCount: complaints.length,
-                          itemBuilder: (context, index) {
-                            return _complaintCard(complaints[index]);
-                          },
-                        ),
+                  : (_tabIndex == 0
+                      ? (openComplaints.isEmpty
+                          ? _emptyState()
+                          : ListView.builder(
+                              physics: const AlwaysScrollableScrollPhysics(),
+                              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 20),
+                              itemCount: openComplaints.length,
+                              itemBuilder: (context, index) {
+                                return _complaintCard(openComplaints[index]);
+                              },
+                            ))
+                      : (resolvedComplaints.isEmpty
+                          ? _emptyStateResolved()
+                          : ListView.builder(
+                              physics: const AlwaysScrollableScrollPhysics(),
+                              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 20),
+                              itemCount: resolvedComplaints.length,
+                              itemBuilder: (context, index) {
+                                return _complaintCard(resolvedComplaints[index], resolved: true);
+                              },
+                            ))),
             ),
           ),
         ],
@@ -128,7 +173,45 @@ class _ComplaintsScreenState
     );
   }
 
-  Widget _complaintCard(Map<String, dynamic> item) {
+  Widget _tabButton(String label, int idx) {
+    final selected = _tabIndex == idx;
+    return Expanded(
+      child: GestureDetector(
+        onTap: () => setState(() => _tabIndex = idx),
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 180),
+          curve: Curves.ease,
+          height: 40,
+          margin: const EdgeInsets.symmetric(vertical: 4, horizontal: 4),
+          alignment: Alignment.center,
+          decoration: BoxDecoration(
+            color: selected ? Colors.white : Colors.transparent,
+            borderRadius: BorderRadius.circular(22),
+            boxShadow: selected
+                ? [
+                    BoxShadow(
+                      color: Colors.black.withOpacity(0.06),
+                      blurRadius: 6,
+                      offset: const Offset(0, 2),
+                    ),
+                  ]
+                : [],
+          ),
+          child: Text(
+            label,
+            style: TextStyle(
+              color: selected ? const Color(0xFF4A90E2) : Colors.white,
+              fontWeight: FontWeight.bold,
+              fontSize: 15,
+              letterSpacing: 0.2,
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _complaintCard(Map<String, dynamic> item, {bool resolved = false}) {
     final String priority =
         (item['priority'] ?? 'low').toString().toLowerCase();
 
@@ -156,41 +239,48 @@ class _ComplaintsScreenState
         statusColor = Colors.red;
     }
 
+    final needsReview = resolved && ((item['rating'] == null || item['rating'] == 0));
     return GestureDetector(
-      onTap: () => _openDetail(item),
+      onTap: () {
+        if (resolved && needsReview) {
+          _openDetailInsistReview(item);
+        } else {
+          _openDetail(item);
+        }
+      },
       child: Container(
-        margin: const EdgeInsets.only(bottom: 18),
-        padding: const EdgeInsets.all(18),
+        margin: const EdgeInsets.only(bottom: 22),
+        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 20),
         decoration: BoxDecoration(
           color: Colors.white,
-          borderRadius: BorderRadius.circular(20),
+          borderRadius: BorderRadius.circular(22),
           boxShadow: [
             BoxShadow(
-              color: Colors.black.withOpacity(0.05),
-              blurRadius: 12,
-              offset: const Offset(0, 6),
+              color: Colors.black.withOpacity(0.07),
+              blurRadius: 16,
+              offset: const Offset(0, 8),
             )
           ],
         ),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // Complaint number row
+            // Complaint number badge
             if (item['complaint_id'] != null)
               Container(
-                margin: const EdgeInsets.only(bottom: 8),
-                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                margin: const EdgeInsets.only(bottom: 10),
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
                 decoration: BoxDecoration(
-                  color: const Color(0xFF4A90E2).withOpacity(0.1),
-                  borderRadius: BorderRadius.circular(8),
+                  color: const Color(0xFF4A90E2).withOpacity(0.08),
+                  borderRadius: BorderRadius.circular(6),
                 ),
                 child: Text(
                   "Complaint No: ${item['complaint_id']}",
                   style: const TextStyle(
-                    fontSize: 12,
-                    fontWeight: FontWeight.bold,
+                    fontSize: 11,
+                    fontWeight: FontWeight.w600,
                     color: Color(0xFF4A90E2),
-                    letterSpacing: 1,
+                    letterSpacing: 0.5,
                   ),
                 ),
               ),
@@ -198,26 +288,26 @@ class _ComplaintsScreenState
             Text(
               item['issue_name'] ?? "",
               style: const TextStyle(
-                fontSize: 18,
-                fontWeight: FontWeight.w600,
+                fontSize: 19,
+                fontWeight: FontWeight.bold,
+                color: Colors.black,
               ),
             ),
 
-            const SizedBox(height: 6),
+            const SizedBox(height: 7),
 
             Text(
               item['description'] ?? "",
               maxLines: 2,
               overflow: TextOverflow.ellipsis,
               style: const TextStyle(
-                  fontSize: 14,
+                  fontSize: 14.5,
                   color: Colors.black87),
             ),
 
-            const SizedBox(height: 10),
+            const SizedBox(height: 16),
 
             Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
                 if (item['created_at'] != null)
                   Text(
@@ -226,18 +316,27 @@ class _ComplaintsScreenState
                         fontSize: 12,
                         color: Colors.grey),
                   ),
-                if (item['ward_name'] != null)
-                  Text(
-                    item['ward_name'],
-                    style: const TextStyle(
-                        fontSize: 12,
-                        fontWeight: FontWeight.w500,
-                        color: Colors.blueGrey),
+                if (item['ward_name'] != null) ...[
+                  const SizedBox(width: 12),
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                    decoration: BoxDecoration(
+                      color: Colors.blueGrey.withOpacity(0.08),
+                      borderRadius: BorderRadius.circular(6),
+                    ),
+                    child: Text(
+                      item['ward_name'],
+                      style: const TextStyle(
+                          fontSize: 12,
+                          fontWeight: FontWeight.w500,
+                          color: Colors.blueGrey),
+                    ),
                   ),
+                ],
               ],
             ),
 
-            const SizedBox(height: 12),
+            const SizedBox(height: 16),
 
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -245,20 +344,90 @@ class _ComplaintsScreenState
                 Row(
                   children: [
                     _badge(priority.toUpperCase(), priorityColor),
-                    const SizedBox(width: 10),
+                    const SizedBox(width: 8),
                     _badge((item['status'] ?? "open").toUpperCase(), statusColor),
                   ],
                 ),
-                const Row(
+                Row(
                   children: [
-                    Text("Details", style: TextStyle(color: Color(0xFF4A90E2), fontSize: 13)),
-                    Icon(Icons.chevron_right, color: Color(0xFF4A90E2), size: 18),
+                    if (resolved && needsReview)
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                        decoration: BoxDecoration(
+                          color: Colors.red.withOpacity(0.13),
+                          borderRadius: BorderRadius.circular(10),
+                        ),
+                        child: const Text(
+                          "Review Required",
+                          style: TextStyle(fontSize: 11, color: Colors.red, fontWeight: FontWeight.w600),
+                        ),
+                      ),
+                    const SizedBox(width: 8),
+                    TextButton(
+                      style: TextButton.styleFrom(
+                        padding: EdgeInsets.zero,
+                        minimumSize: const Size(40, 30),
+                        tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                        visualDensity: VisualDensity.compact,
+                      ),
+                      onPressed: () {
+                        if (resolved && needsReview) {
+                          _openDetailInsistReview(item);
+                        } else {
+                          _openDetail(item);
+                        }
+                      },
+                      child: Row(
+                        children: const [
+                          Text("Details", style: TextStyle(color: Color(0xFF4A90E2), fontSize: 13, fontWeight: FontWeight.w600)),
+                          SizedBox(width: 2),
+                          Icon(Icons.chevron_right, color: Color(0xFF4A90E2), size: 18),
+                        ],
+                      ),
+                    ),
                   ],
                 ),
               ],
             ),
           ],
         ),
+      ),
+    );
+  }
+
+  void _openDetailInsistReview(Map<String, dynamic> item) async {
+    bool reviewDone = false;
+    await showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      isDismissible: false,
+      enableDrag: false,
+      builder: (_) => _ComplaintDetailSheet(
+        item: item,
+        fetchWorkerDetails: _fetchWorkerDetails,
+        insistReview: true,
+        onReviewSubmitted: () {
+          reviewDone = true;
+          Navigator.of(context).pop();
+        },
+      ),
+    );
+    if (reviewDone) fetchComplaints();
+  }
+
+  Widget _emptyStateResolved() {
+    return const Center(
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Icon(Icons.verified, size: 70, color: Colors.green),
+          SizedBox(height: 15),
+          Text(
+            "No resolved complaints yet",
+            style: TextStyle(fontSize: 18, color: Colors.grey),
+          ),
+        ],
       ),
     );
   }
@@ -333,15 +502,18 @@ class _ComplaintsScreenState
   }
 }
 
-// ─── Detail Bottom Sheet ────────────────────────────────────────────────────
 
 class _ComplaintDetailSheet extends StatefulWidget {
   final Map<String, dynamic> item;
   final Future<Map<String, dynamic>?> Function(int) fetchWorkerDetails;
+  final bool insistReview;
+  final VoidCallback? onReviewSubmitted;
 
   const _ComplaintDetailSheet({
     required this.item,
     required this.fetchWorkerDetails,
+    this.insistReview = false,
+    this.onReviewSubmitted,
   });
 
   @override
@@ -368,7 +540,6 @@ class _ComplaintDetailSheetState extends State<_ComplaintDetailSheet> {
     if (workerId != null) {
       _loadWorker(workerId as int);
     }
-    // Pre-fill existing rating/review if already submitted
     final existingRating = widget.item['rating'];
     final existingReview = widget.item['review'] as String?;
     if (existingRating != null) {
@@ -415,6 +586,9 @@ class _ComplaintDetailSheetState extends State<_ComplaintDetailSheet> {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text("Review submitted. Thank you!"), backgroundColor: Colors.green),
         );
+        if (widget.insistReview && widget.onReviewSubmitted != null) {
+          widget.onReviewSubmitted!();
+        }
       }
     } catch (_) {
       if (mounted) {
@@ -451,7 +625,6 @@ class _ComplaintDetailSheetState extends State<_ComplaintDetailSheet> {
           controller: controller,
           padding: const EdgeInsets.all(20),
           children: [
-            // Handle
             Center(
               child: Container(
                 width: 40, height: 4,
@@ -463,7 +636,6 @@ class _ComplaintDetailSheetState extends State<_ComplaintDetailSheet> {
               ),
             ),
 
-            // Complaint Number
             if (item['complaint_id'] != null)
               _infoCard(
                 icon: Icons.tag,
@@ -474,7 +646,6 @@ class _ComplaintDetailSheetState extends State<_ComplaintDetailSheet> {
 
             const SizedBox(height: 12),
 
-            // Issue
             _infoCard(
               icon: Icons.report_problem,
               iconColor: Colors.red,
@@ -485,7 +656,6 @@ class _ComplaintDetailSheetState extends State<_ComplaintDetailSheet> {
 
             const SizedBox(height: 12),
 
-            // Status & Priority
             Row(children: [
               Expanded(
                 child: _smallInfoCard(
@@ -510,7 +680,6 @@ class _ComplaintDetailSheetState extends State<_ComplaintDetailSheet> {
 
             const SizedBox(height: 12),
 
-            // Ward & Date
             _infoCard(
               icon: Icons.location_city,
               iconColor: Colors.blueGrey,
@@ -538,7 +707,6 @@ class _ComplaintDetailSheetState extends State<_ComplaintDetailSheet> {
               ),
             ],
 
-            // ── Assigned Worker ──────────────────────
             const SizedBox(height: 20),
             const Text(
               "Assigned Worker",
@@ -613,7 +781,6 @@ class _ComplaintDetailSheetState extends State<_ComplaintDetailSheet> {
                         ),
                       ),
 
-            // Action buttons
             const SizedBox(height: 20),
             if (item['image_url'] != null)
               OutlinedButton.icon(
@@ -643,7 +810,6 @@ class _ComplaintDetailSheetState extends State<_ComplaintDetailSheet> {
                 label: const Text("View Location on Map"),
               ),
 
-            // ── Rating & Review (only for resolved complaints) ───────────
             if (status == 'closed') ..._buildRatingSection(),
 
             const SizedBox(height: 30),
@@ -654,6 +820,7 @@ class _ComplaintDetailSheetState extends State<_ComplaintDetailSheet> {
   }
 
   List<Widget> _buildRatingSection() {
+    final insist = widget.insistReview;
     return [
       const SizedBox(height: 24),
       const Divider(),
@@ -683,13 +850,18 @@ class _ComplaintDetailSheetState extends State<_ComplaintDetailSheet> {
         ],
       ),
       const SizedBox(height: 4),
-      const Text(
-        "Your feedback helps improve civic services.",
-        style: TextStyle(fontSize: 12, color: Colors.black54),
-      ),
+      if (insist && !_reviewSaved)
+        const Text(
+          "You must rate and review the work before closing.",
+          style: TextStyle(fontSize: 13, color: Colors.red, fontWeight: FontWeight.w500),
+        )
+      else
+        const Text(
+          "Your feedback helps improve civic services.",
+          style: TextStyle(fontSize: 12, color: Colors.black54),
+        ),
       const SizedBox(height: 14),
 
-      // Star selector
       Row(
         mainAxisAlignment: MainAxisAlignment.center,
         children: List.generate(5, (index) {
@@ -711,7 +883,6 @@ class _ComplaintDetailSheetState extends State<_ComplaintDetailSheet> {
 
       const SizedBox(height: 16),
 
-      // Review text box
       Container(
         decoration: BoxDecoration(
           color: Colors.white,
