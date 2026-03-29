@@ -1,7 +1,8 @@
 import 'package:flutter/material.dart';
 
 class SuccessScreen extends StatefulWidget {
-  const SuccessScreen({super.key});
+  final String? complaintId;
+  const SuccessScreen({super.key, this.complaintId});
 
   @override
   State<SuccessScreen> createState() =>
@@ -50,17 +51,45 @@ class _SuccessScreenState
           child: Column(
             mainAxisSize:
                 MainAxisSize.min,
-            children: const [
-              Icon(Icons.check_circle,
+            children: [
+              const Icon(Icons.check_circle,
                   color: Colors.white,
                   size: 120),
-              SizedBox(height: 20),
-              Text("Complaint Submitted!",
+              const SizedBox(height: 20),
+              const Text("Complaint Submitted!",
                   style: TextStyle(
                       color: Colors.white,
                       fontSize: 22,
                       fontWeight:
                           FontWeight.bold)),
+              if (widget.complaintId != null) ...[
+                const SizedBox(height: 14),
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
+                  decoration: BoxDecoration(
+                    color: Colors.white.withOpacity(0.2),
+                    borderRadius: BorderRadius.circular(16),
+                  ),
+                  child: Column(
+                    children: [
+                      const Text(
+                        "Your Complaint No.",
+                        style: TextStyle(color: Colors.white70, fontSize: 13),
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        widget.complaintId!,
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontSize: 20,
+                          fontWeight: FontWeight.bold,
+                          letterSpacing: 2,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
             ],
           ),
         ),

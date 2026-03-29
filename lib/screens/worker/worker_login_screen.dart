@@ -1,33 +1,21 @@
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
-import 'package:smart_civic_connect/screens/homescreen.dart';
-import 'package:smart_civic_connect/screens/login/namescreen.dart';
-import 'package:smart_civic_connect/screens/worker/worker_login_screen.dart';
+import 'package:smart_civic_connect/screens/worker/worker_home_screen.dart';
 import 'package:smart_civic_connect/services/local_storage.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
-class AuthScreen extends StatefulWidget {
-  final String location;
-  final int locationCode;
-
-  const AuthScreen({
-    super.key,
-    required this.location,
-    required this.locationCode,
-  });
+class WorkerLoginScreen extends StatefulWidget {
+  const WorkerLoginScreen({super.key});
 
   @override
-  State<AuthScreen> createState() => _AuthScreenState();
+  State<WorkerLoginScreen> createState() => _WorkerLoginScreenState();
 }
 
-class _AuthScreenState extends State<AuthScreen>
+class _WorkerLoginScreenState extends State<WorkerLoginScreen>
     with TickerProviderStateMixin {
-
   final FirebaseAuth _auth = FirebaseAuth.instance;
-
   final TextEditingController phoneController = TextEditingController();
   final TextEditingController otpController = TextEditingController();
-
   final _formKey = GlobalKey<FormState>();
 
   String verificationId = "";
@@ -42,8 +30,8 @@ class _AuthScreenState extends State<AuthScreen>
   @override
   void initState() {
     super.initState();
-    _timerController =
-        AnimationController(vsync: this, duration: const Duration(seconds: 30));
+    _timerController = AnimationController(
+        vsync: this, duration: const Duration(seconds: 30));
   }
 
   @override
@@ -56,34 +44,32 @@ class _AuthScreenState extends State<AuthScreen>
 
   Future<void> sendOTP() async {
     if (!_formKey.currentState!.validate()) return;
-
     setState(() => loading = true);
 
     await _auth.verifyPhoneNumber(
       phoneNumber: "+91${phoneController.text.trim()}",
       timeout: const Duration(seconds: 60),
-
       verificationCompleted: (PhoneAuthCredential credential) async {
         await _auth.signInWithCredential(credential);
       },
-
       verificationFailed: (FirebaseAuthException e) {
-        ScaffoldMessenger.of(context)
-            .showSnackBar(SnackBar(content: Text(e.message ?? "")));
-        setState(() => loading = false);
+        if (mounted) {
+          ScaffoldMessenger.of(context)
+              .showSnackBar(SnackBar(content: Text(e.message ?? "")));
+          setState(() => loading = false);
+        }
       },
-
       codeSent: (String verId, int? resendToken) {
-        setState(() {
-          verificationId = verId;
-          codeSent = true;
-          loading = false;
-        });
-
-        _timerController.reset();
-        _timerController.reverse(from: 1);
+        if (mounted) {
+          setState(() {
+            verificationId = verId;
+            codeSent = true;
+            loading = false;
+          });
+          _timerController.reset();
+          _timerController.reverse(from: 1);
+        }
       },
-
       codeAutoRetrievalTimeout: (String verId) {
         verificationId = verId;
       },
@@ -110,37 +96,43 @@ class _AuthScreenState extends State<AuthScreen>
       final phone = phoneController.text.trim();
       final supabase = Supabase.instance.client;
 
-      final existingUser = await supabase
-          .from('users')
-          .select()
+      // Check workers table for this phone number
+      final workerData = await supabase
+          .from('workers')
+          .select('id, name, phone, ward_name')
           .eq('phone', phone)
           .maybeSingle();
 
-      if (existingUser == null) {
-        Navigator.push(
-          context,
-          MaterialPageRoute(
-            builder: (_) => NameScreen(
-              phone: phone,
-              location: widget.location,
-              locationCode: widget.locationCode,
-            ),
+      if (workerData == null) {
+        if (!mounted) return;
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text("You are not registered as a worker. Contact admin."),
+            backgroundColor: Colors.red,
           ),
         );
-      } else {
-        await AppLocalStorage.saveLogin(phone);
-
-        Navigator.pushReplacement(
-          context,
-          MaterialPageRoute(builder: (_) => const HomeScreen()),
-        );
+        await _auth.signOut();
+        setState(() => loading = false);
+        return;
       }
 
+      await AppLocalStorage.saveWorkerLogin(phone, workerData['id'] as int);
+
+      if (!mounted) return;
+      Navigator.pushAndRemoveUntil(
+        context,
+        MaterialPageRoute(
+          builder: (_) => WorkerHomeScreen(workerData: workerData),
+        ),
+        (route) => false,
+      );
     } on FirebaseAuthException catch (e) {
-      ScaffoldMessenger.of(context)
-          .showSnackBar(SnackBar(content: Text(e.message ?? "Invalid OTP")));
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text(e.message ?? "Invalid OTP")));
+      }
     } finally {
-      setState(() => loading = false);
+      if (mounted) setState(() => loading = false);
     }
   }
 
@@ -155,7 +147,7 @@ class _AuthScreenState extends State<AuthScreen>
             padding: const EdgeInsets.fromLTRB(20, 70, 20, 40),
             decoration: const BoxDecoration(
               gradient: LinearGradient(
-                colors: [Color(0xFF4A90E2), Color(0xFF70C6FB)],
+                colors: [Color(0xFF2E7D32), Color(0xFF66BB6A)],
                 begin: Alignment.topLeft,
                 end: Alignment.bottomRight,
               ),
@@ -166,15 +158,30 @@ class _AuthScreenState extends State<AuthScreen>
             ),
             child: Column(
               children: [
-                Image.asset("images/logo1.png", height: 95),
-                const SizedBox(height: 15),
+                Row(
+                  children: [
+                    IconButton(
+                      icon: const Icon(Icons.arrow_back_ios_new,
+                          color: Colors.white),
+                      onPressed: () => Navigator.pop(context),
+                    ),
+                    const SizedBox(width: 8),
+                    const Text(
+                      "Worker Login",
+                      style: TextStyle(
+                        color: Colors.white,
+                        fontSize: 20,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 12),
+                const Icon(Icons.engineering, color: Colors.white, size: 56),
+                const SizedBox(height: 10),
                 const Text(
-                  "Mobile Verification",
-                  style: TextStyle(
-                    color: Colors.white,
-                    fontSize: 20,
-                    fontWeight: FontWeight.bold,
-                  ),
+                  "Field Worker Verification",
+                  style: TextStyle(color: Colors.white70, fontSize: 14),
                 ),
               ],
             ),
@@ -191,8 +198,8 @@ class _AuthScreenState extends State<AuthScreen>
                   child: loading
                       ? const Center(child: CircularProgressIndicator())
                       : codeSent
-                          ? buildOtpWidget()
-                          : buildPhoneWidget(),
+                          ? _buildOtpWidget()
+                          : _buildPhoneWidget(),
                 ),
               ),
             ),
@@ -202,21 +209,15 @@ class _AuthScreenState extends State<AuthScreen>
     );
   }
 
-  Widget buildPhoneWidget() {
+  Widget _buildPhoneWidget() {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-
         const Text(
-          "Enter Registered Mobile Number",
-          style: TextStyle(
-            fontSize: 16,
-            fontWeight: FontWeight.w600,
-          ),
+          "Enter Your Registered Mobile Number",
+          style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
         ),
-
         const SizedBox(height: 20),
-
         Container(
           height: 60,
           padding: const EdgeInsets.symmetric(horizontal: 16),
@@ -233,17 +234,10 @@ class _AuthScreenState extends State<AuthScreen>
           ),
           child: Row(
             children: [
-
-              const Text(
-                "+91",
-                style: TextStyle(
-                  fontSize: 16,
-                  fontWeight: FontWeight.w600,
-                ),
-              ),
-
+              const Text("+91",
+                  style:
+                      TextStyle(fontSize: 16, fontWeight: FontWeight.w600)),
               const SizedBox(width: 12),
-
               Expanded(
                 child: TextFormField(
                   controller: phoneController,
@@ -265,67 +259,21 @@ class _AuthScreenState extends State<AuthScreen>
             ],
           ),
         ),
-
         const SizedBox(height: 40),
-
-        buildModernButton("Send OTP", sendOTP),
-
-        const SizedBox(height: 20),
-
-        // Worker login entry
-        GestureDetector(
-          onTap: () {
-            Navigator.push(
-              context,
-              MaterialPageRoute(
-                builder: (_) => const WorkerLoginScreen(),
-              ),
-            );
-          },
-          child: Container(
-            width: double.infinity,
-            padding: const EdgeInsets.symmetric(vertical: 14),
-            decoration: BoxDecoration(
-              color: Colors.white,
-              borderRadius: BorderRadius.circular(18),
-              border: Border.all(color: const Color(0xFF4A90E2), width: 1.5),
-            ),
-            child: const Row(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                Icon(Icons.engineering, color: Color(0xFF4A90E2)),
-                SizedBox(width: 10),
-                Text(
-                  "Are you a Worker? Login here",
-                  style: TextStyle(
-                    fontSize: 14,
-                    fontWeight: FontWeight.w600,
-                    color: Color(0xFF4A90E2),
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ),
+        _buildButton("Send OTP", sendOTP),
       ],
     );
   }
 
-  Widget buildOtpWidget() {
+  Widget _buildOtpWidget() {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-
         const Text(
           "Enter OTP",
-          style: TextStyle(
-            fontSize: 16,
-            fontWeight: FontWeight.w600,
-          ),
+          style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
         ),
-
         const SizedBox(height: 20),
-
         Container(
           height: 60,
           padding: const EdgeInsets.symmetric(horizontal: 16),
@@ -351,9 +299,7 @@ class _AuthScreenState extends State<AuthScreen>
             ),
           ),
         ),
-
         const SizedBox(height: 15),
-
         AnimatedBuilder(
           animation: _timerController,
           builder: (context, child) {
@@ -368,20 +314,19 @@ class _AuthScreenState extends State<AuthScreen>
                   );
           },
         ),
-
         const SizedBox(height: 40),
-
-        buildModernButton("Verify", verifyOTP),
+        _buildButton("Verify", verifyOTP),
       ],
     );
   }
-  Widget buildModernButton(String title, VoidCallback onTap) {
+
+  Widget _buildButton(String title, VoidCallback onTap) {
     return SizedBox(
       width: double.infinity,
       height: 50,
       child: ElevatedButton(
         style: ElevatedButton.styleFrom(
-          backgroundColor: const Color(0xFF4A90E2),
+          backgroundColor: const Color(0xFF2E7D32),
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(18),
           ),

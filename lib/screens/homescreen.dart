@@ -40,15 +40,13 @@ class _HomeScreenState extends State<HomeScreen> {
       .single();
 
   final user = FirebaseAuth.instance.currentUser;
+  if (user == null) return;
 
-  if (user == null || user.phoneNumber == null) return;
-
-  final String userPhone = user.phoneNumber!;
-
+  // Use Firebase UID to fetch complaints (user_id column)
   final complaints = await supabase
       .from('complaints')
       .select()
-      .eq('phone', userPhone);
+      .eq('user_id', user.uid);
 
   int open = 0;
   int progress = 0;

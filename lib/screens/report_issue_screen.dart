@@ -1,5 +1,6 @@
 import 'dart:io';
 import 'dart:convert';
+import 'dart:math';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:geolocator/geolocator.dart';
@@ -31,16 +32,11 @@ class _ReportIssueScreenState extends State<ReportIssueScreen> {
   bool isLoading = false;
   bool isCivicIssue = false;
 
-  String _assignWard(double lat, double lng) {
-    if (lat >= 11.05) {
-      return "Coimbatore North";
-    } else if (lat >= 11.00) {
-      return "Coimbatore East";
-    } else if (lat >= 10.95) {
-      return "Coimbatore West";
-    } else {
-      return "Coimbatore South";
-    }
+  String _generateComplaintId() {
+    const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
+    final rng = Random();
+    final suffix = List.generate(6, (_) => chars[rng.nextInt(chars.length)]).join();
+    return 'CMP-$suffix';
   }
   Future<void> pickIssueImage(ImageSource source) async {
     final XFile? photo = await _picker.pickImage(source: source);
@@ -219,24 +215,40 @@ class _ReportIssueScreenState extends State<ReportIssueScreen> {
     try {
       final imageUrl = await _uploadImage(_issueImage!);
 
-      String wardName = "Unknown";
-      if (_position != null) {
-        wardName = _assignWard(
-          _position!.latitude,
-          _position!.longitude,
-        );
-      }
+      final currentUser = FirebaseAuth.instance.currentUser!;
+      final uid         = currentUser.uid;
+      final firebasePhone = currentUser.phoneNumber ?? '';
+      final phone = firebasePhone.length > 10
+          ? firebasePhone.substring(firebasePhone.length - 10)
+          : firebasePhone;
+
+      int? wardCode;
+      String? wardName;
+      try {
+        final userData = await supabase
+            .from('users')
+            .select('location_code, location')
+            .eq('phone', phone)
+            .single();
+        wardCode = userData['location_code'] as int?;
+        wardName = userData['location'] as String?;
+      } catch (_) {}
+
+      final complaintId = _generateComplaintId();
 
       await supabase.from('complaints').insert({
-        'phone': FirebaseAuth.instance.currentUser!.phoneNumber,
-        'issue_name': issueName,
-        'description': description,
-        'priority': aiPriority,
-        'image_url': imageUrl,
-        'latitude': _position?.latitude,
-        'longitude': _position?.longitude,
-        'ward_name': wardName,
-        'status': 'open',
+        'phone':        phone,
+        'user_id':      uid,
+        'complaint_id': complaintId,
+        'issue_name':   issueName,
+        'description':  description,
+        'priority':     aiPriority.toLowerCase(),
+        'image_url':    imageUrl,
+        'latitude':     _position?.latitude,
+        'longitude':    _position?.longitude,
+        'ward_code':    wardCode,
+        'ward_name':    wardName,
+        'status':       'open',
       });
 
       if (!mounted) return;
@@ -244,7 +256,7 @@ class _ReportIssueScreenState extends State<ReportIssueScreen> {
       Navigator.pushReplacement(
         context,
         MaterialPageRoute(
-          builder: (_) => const SuccessScreen(),
+          builder: (_) => SuccessScreen(complaintId: complaintId),
         ),
       );
     } catch (_) {
