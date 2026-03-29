@@ -4,6 +4,7 @@ import 'package:smart_civic_connect/utils/my_navigator.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:smart_civic_connect/screens/login/location_screen.dart';
 import '../../services/local_storage.dart';
+import 'package:smart_civic_connect/services/notif_badge.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -27,6 +28,7 @@ class _HomeScreenState extends State<HomeScreen> {
   void initState() {
     super.initState();
     loadDashboardData();
+    NotifBadgeService.load();
   }
 
  Future<void> loadDashboardData() async {
@@ -302,8 +304,28 @@ class _HomeScreenState extends State<HomeScreen> {
             ),
 
             IconButton(
-              icon: const Icon(Icons.notifications_none,
-                  color: Colors.grey),
+              icon: ValueListenableBuilder<int>(
+                valueListenable: NotifBadgeService.count,
+                builder: (_, cnt, __) => Stack(
+                  clipBehavior: Clip.none,
+                  children: [
+                    const Icon(Icons.notifications_none, color: Colors.grey),
+                    if (cnt > 0)
+                      Positioned(
+                        right: -2,
+                        top: -2,
+                        child: Container(
+                          width: 9,
+                          height: 9,
+                          decoration: const BoxDecoration(
+                            color: Colors.red,
+                            shape: BoxShape.circle,
+                          ),
+                        ),
+                      ),
+                  ],
+                ),
+              ),
               onPressed: () {
                 MyNavigator.goNotifications(context);
               },

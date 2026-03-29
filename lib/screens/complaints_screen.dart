@@ -3,6 +3,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:smart_civic_connect/utils/my_navigator.dart';
 import 'package:url_launcher/url_launcher.dart';
+import 'package:smart_civic_connect/services/notif_badge.dart';
 
 class ComplaintsScreen extends StatefulWidget {
   const ComplaintsScreen({super.key});
@@ -20,11 +21,25 @@ class _ComplaintsScreenState
   bool isLoading = true;
   List complaints = [];
   int _tabIndex = 0;
+  bool _tabArgApplied = false;
 
   @override
   void initState() {
     super.initState();
     fetchComplaints();
+    NotifBadgeService.load();
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    if (!_tabArgApplied) {
+      _tabArgApplied = true;
+      final args = ModalRoute.of(context)?.settings.arguments;
+      if (args is Map && args['initialTab'] != null) {
+        _tabIndex = args['initialTab'] as int;
+      }
+    }
   }
 
   Future<void> fetchComplaints() async {
@@ -116,25 +131,49 @@ class _ComplaintsScreenState
                   const SizedBox(height: 18),
                   Container(
                     height: 48,
-                    margin: const EdgeInsets.symmetric(horizontal: 28),
+                    margin: const EdgeInsets.symmetric(horizontal: 20),
                     decoration: BoxDecoration(
-                      color: Colors.white.withOpacity(0.18),
-                      borderRadius: BorderRadius.circular(30),
-                      boxShadow: [
-                        BoxShadow(
-                          color: Colors.black.withOpacity(0.07),
-                          blurRadius: 8,
-                          offset: const Offset(0, 2),
+                      color: Colors.white.withOpacity(0.22),
+                      borderRadius: BorderRadius.circular(14),
+                    ),
+                    child: Stack(
+                      children: [
+                        // Animated sliding indicator
+                        AnimatedAlign(
+                          duration: const Duration(milliseconds: 220),
+                          curve: Curves.easeInOut,
+                          alignment: _tabIndex == 0
+                              ? Alignment.centerLeft
+                              : Alignment.centerRight,
+                          child: FractionallySizedBox(
+                            widthFactor: 0.5,
+                            child: Container(
+                              margin: const EdgeInsets.all(4),
+                              decoration: BoxDecoration(
+                                color: Colors.white,
+                                borderRadius: BorderRadius.circular(10),
+                                boxShadow: [
+                                  BoxShadow(
+                                    color: Colors.black.withOpacity(0.08),
+                                    blurRadius: 6,
+                                    offset: const Offset(0, 2),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ),
+                        ),
+                        // Tab labels on top
+                        Row(
+                          children: [
+                            _tabButton("Active", 0),
+                            _tabButton("Resolved", 1),
+                          ],
                         ),
                       ],
                     ),
-                    child: Row(
-                      children: [
-                        _tabButton("Active", 0),
-                        _tabButton("Resolved", 1),
-                      ],
-                    ),
                   ),
+                  const SizedBox(height: 10),
                 ],
               ),
             ),
@@ -178,33 +217,19 @@ class _ComplaintsScreenState
     return Expanded(
       child: GestureDetector(
         onTap: () => setState(() => _tabIndex = idx),
-        child: AnimatedContainer(
-          duration: const Duration(milliseconds: 180),
-          curve: Curves.ease,
-          height: 40,
-          margin: const EdgeInsets.symmetric(vertical: 4, horizontal: 4),
+        child: Container(
+          height: 48,
           alignment: Alignment.center,
-          decoration: BoxDecoration(
-            color: selected ? Colors.white : Colors.transparent,
-            borderRadius: BorderRadius.circular(22),
-            boxShadow: selected
-                ? [
-                    BoxShadow(
-                      color: Colors.black.withOpacity(0.06),
-                      blurRadius: 6,
-                      offset: const Offset(0, 2),
-                    ),
-                  ]
-                : [],
-          ),
-          child: Text(
-            label,
+          color: Colors.transparent,
+          child: AnimatedDefaultTextStyle(
+            duration: const Duration(milliseconds: 200),
             style: TextStyle(
               color: selected ? const Color(0xFF4A90E2) : Colors.white,
-              fontWeight: FontWeight.bold,
-              fontSize: 15,
+              fontWeight: selected ? FontWeight.bold : FontWeight.w500,
+              fontSize: 14,
               letterSpacing: 0.2,
             ),
+            child: Text(label),
           ),
         ),
       ),
@@ -493,7 +518,28 @@ class _ComplaintsScreenState
             color: Color(0xFF4A90E2),
           ),
           IconButton(
-            icon: const Icon(Icons.notifications_none, color: Colors.grey),
+            icon: ValueListenableBuilder<int>(
+              valueListenable: NotifBadgeService.count,
+              builder: (_, cnt, __) => Stack(
+                clipBehavior: Clip.none,
+                children: [
+                  const Icon(Icons.notifications_none, color: Colors.grey),
+                  if (cnt > 0)
+                    Positioned(
+                      right: -2,
+                      top: -2,
+                      child: Container(
+                        width: 9,
+                        height: 9,
+                        decoration: const BoxDecoration(
+                          color: Colors.red,
+                          shape: BoxShape.circle,
+                        ),
+                      ),
+                    ),
+                ],
+              ),
+            ),
             onPressed: () => MyNavigator.goNotifications(context),
           ),
         ],
