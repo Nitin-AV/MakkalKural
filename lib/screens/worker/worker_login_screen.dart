@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:smart_civic_connect/screens/worker/worker_home_screen.dart';
 import 'package:smart_civic_connect/services/local_storage.dart';
@@ -145,7 +146,12 @@ class _WorkerLoginScreenState extends State<WorkerLoginScreen>
           seedColor: const Color(0xFF2E7D32),
         ),
       ),
-      child: Scaffold(
+      child: AnnotatedRegion<SystemUiOverlayStyle>(
+        value: const SystemUiOverlayStyle(
+          statusBarColor: Color(0xFF2E7D32),
+          statusBarIconBrightness: Brightness.light,
+        ),
+        child: Scaffold(
       backgroundColor: const Color(0xFFF4F7FB),
       body: Column(
         children: [
@@ -214,6 +220,7 @@ class _WorkerLoginScreenState extends State<WorkerLoginScreen>
         ],
       ),
     ),
+      ),
     );
   }
 
