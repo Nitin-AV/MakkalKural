@@ -1,5 +1,6 @@
 import 'package:smart_civic_connect/constants/api_constants.dart';
 import 'package:smart_civic_connect/screens/complaints_screen.dart';
+import 'package:smart_civic_connect/screens/faq_screen.dart';
 import 'package:smart_civic_connect/screens/notifications_screen.dart';
 import 'package:smart_civic_connect/screens/report_issue_screen.dart';
 import 'package:flutter/material.dart';
@@ -46,6 +47,7 @@ class MyApp extends StatelessWidget {
         "/report": (context) => const ReportIssueScreen(),
         "/complaints": (context) => const ComplaintsScreen(),
         "/notifications": (context) => const NotificationsScreen(),
+        "/faq": (context) => const FaqScreen(),
       },
     );
   }

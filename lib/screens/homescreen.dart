@@ -156,18 +156,30 @@ class _HomeScreenState extends State<HomeScreen> {
                               fontWeight: FontWeight.bold,
                               color: Colors.white),
                         ),
-                        IconButton(
-                          icon: const Icon(Icons.logout,
-                              color: Colors.white),
-                          onPressed: () async {
-                            await AppLocalStorage.logout();
-                            Navigator.pushAndRemoveUntil(
-                                context,
-                                MaterialPageRoute(
-                                    builder: (_) =>
-                                        const LocationScreen()),
-                                (route) => false);
-                          },
+                        Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            IconButton(
+                              icon: const Icon(Icons.help_outline,
+                                  color: Colors.white),
+                              tooltip: "FAQ",
+                              onPressed: () =>
+                                  MyNavigator.goFaq(context),
+                            ),
+                            IconButton(
+                              icon: const Icon(Icons.logout,
+                                  color: Colors.white),
+                              onPressed: () async {
+                                await AppLocalStorage.logout();
+                                Navigator.pushAndRemoveUntil(
+                                    context,
+                                    MaterialPageRoute(
+                                        builder: (_) =>
+                                            const LocationScreen()),
+                                    (route) => false);
+                              },
+                            ),
+                          ],
                         )
                       ],
                     ),

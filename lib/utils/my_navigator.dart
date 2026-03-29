@@ -22,6 +22,10 @@ class MyNavigator {
     Navigator.pushNamed(context, '/notifications');
   }
 
+  static void goFaq(BuildContext context) {
+    Navigator.pushNamed(context, '/faq');
+  }
+
   static void logout(BuildContext context) {
     Navigator.pushNamedAndRemoveUntil(
       context,

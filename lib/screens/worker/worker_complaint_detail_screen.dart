@@ -199,6 +199,17 @@ class _WorkerComplaintDetailScreenState
                           value: item['deadline'].toString().substring(0, 10),
                         ),
 
+                      if (item['additional_comments'] != null &&
+                          (item['additional_comments'] as String).isNotEmpty) ...[  
+                        const SizedBox(height: 12),
+                        _infoTile(
+                          icon: Icons.comment,
+                          iconColor: Colors.teal,
+                          title: "Additional Comments",
+                          value: item['additional_comments'],
+                        ),
+                      ],
+
                       if (item['image_url'] != null) ...[
                         const SizedBox(height: 12),
                         _infoTile(

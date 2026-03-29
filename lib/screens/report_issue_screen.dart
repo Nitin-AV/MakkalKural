@@ -32,6 +32,15 @@ class _ReportIssueScreenState extends State<ReportIssueScreen> {
   bool isLoading = false;
   bool isCivicIssue = false;
 
+  String _additionalComments = "";
+  final TextEditingController _additionalCommentsController = TextEditingController();
+
+  @override
+  void dispose() {
+    _additionalCommentsController.dispose();
+    super.dispose();
+  }
+
   String _generateComplaintId() {
     const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
     final rng = Random();
@@ -249,6 +258,7 @@ class _ReportIssueScreenState extends State<ReportIssueScreen> {
         'ward_code':    wardCode,
         'ward_name':    wardName,
         'status':       'open',
+        'additional_comments': _additionalComments.trim().isEmpty ? null : _additionalComments.trim(),
       });
 
       if (!mounted) return;
@@ -319,6 +329,8 @@ class _ReportIssueScreenState extends State<ReportIssueScreen> {
                       if (_position != null) _locationCard(),
                       const SizedBox(height: 20),
                       _aiResultCard(),
+                      const SizedBox(height: 20),
+                      if (issueName.isNotEmpty) _additionalCommentsCard(),
                       const SizedBox(height: 30),
                       _submitButton(),
                     ],
@@ -455,6 +467,38 @@ class _ReportIssueScreenState extends State<ReportIssueScreen> {
     ),
   );
 }
+
+  Widget _additionalCommentsCard() {
+    return _card(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Text(
+            "Additional Comments (Optional)",
+            style: TextStyle(fontWeight: FontWeight.bold),
+          ),
+          const SizedBox(height: 10),
+          TextField(
+            controller: _additionalCommentsController,
+            maxLines: 3,
+            maxLength: 300,
+            onChanged: (v) => _additionalComments = v,
+            decoration: InputDecoration(
+              hintText: "Any extra details about the issue...",
+              hintStyle: const TextStyle(color: Colors.black38),
+              filled: true,
+              fillColor: const Color(0xFFF4F7FB),
+              border: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(12),
+                borderSide: BorderSide.none,
+              ),
+              contentPadding: const EdgeInsets.all(14),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
 
   Widget _submitButton() {
     bool enabled =

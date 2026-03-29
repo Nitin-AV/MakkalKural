@@ -57,12 +57,19 @@ class _ComplaintsScreenState
       final data = await supabase
           .from('complaints')
           .select(
-              'id, complaint_id, issue_name, description, priority, status, image_url, latitude, longitude, created_at, assigned_to, assigned_worker_id, deadline, ward_name, rating, review')
+              'id, complaint_id, issue_name, description, priority, status, image_url, latitude, longitude, created_at, assigned_to, assigned_worker_id, deadline, ward_name, rating, review, additional_comments')
           .eq('user_id', user.uid)
           .order('created_at', ascending: false);
 
       setState(() {
-        complaints = data;
+        // Deduplicate: keep only the newest complaint per issue_name
+        final seen = <String>{};
+        final deduped = <dynamic>[];
+        for (final c in data) {
+          final key = (c['issue_name'] as String? ?? '').toLowerCase().trim();
+          if (seen.add(key)) deduped.add(c);
+        }
+        complaints = deduped;
         isLoading = false;
       });
     } catch (_) {
@@ -572,7 +579,6 @@ class _ComplaintDetailSheetState extends State<_ComplaintDetailSheet> {
   Map<String, dynamic>? workerData;
   bool loadingWorker = false;
 
-  // Rating & Review
   int _selectedRating = 0;
   int _savedRating = 0;
   final TextEditingController _reviewController = TextEditingController();

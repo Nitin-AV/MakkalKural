@@ -40,7 +40,7 @@ class _WorkerHomeScreenState extends State<WorkerHomeScreen> {
       final data = await supabase
           .from('complaints')
           .select(
-              'id, complaint_id, issue_name, description, priority, status, image_url, latitude, longitude, created_at, ward_name, deadline')
+              'id, complaint_id, issue_name, description, priority, status, image_url, latitude, longitude, created_at, ward_name, deadline, additional_comments')
           .eq('assigned_worker_id', workerId)
           .order('created_at', ascending: false);
 
